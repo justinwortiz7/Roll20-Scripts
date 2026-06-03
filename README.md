@@ -30,8 +30,8 @@ By using these scripts, you agree to these terms. The authors are not responsibl
 ## 📚 Resources
 
 - [Intro to Roll20 API Scripts](https://help.roll20.net/hc/en-us/articles/360037256714-Introduction-to-Mod-Scripts-API)
-- [Roll20 Official Website](https://roll20.net/) - Main Roll20 platform
-- [Roll20 Forums](https://forum.roll20.net/) - Community support and discussions
+- [Roll20 Forums](https://app.roll20.net/forum/category/46806)
+- [Roll20 Official Website](https://roll20.net/)
 
 
 ## 📄 License
