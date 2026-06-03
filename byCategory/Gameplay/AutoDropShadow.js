@@ -4,12 +4,11 @@
  */
 const AutoDropShadow = (() => {
     const API_NAME = 'AutoDropShadow';
-    const VERSION = '1.0';
-    const UPDATE_DATE = '2026-06-02';
+    const VERSION = '1.1';
+    const UPDATE_DATE = '2026-06-03';
 
     const DEFAULT_STATE = {
         altitudeKey: 'bar4_value',
-        commandKeyword: 'setshadow',
         prefabId: null,
         sourcesToShadowsMap: {},
         tag: 'ignore'
@@ -79,7 +78,7 @@ const AutoDropShadow = (() => {
 
         const content = message.content ? message.content.toLowerCase() : "";
         const config = state[API_NAME];
-        const apiCommandPrefix = `!${config.commandKeyword}`;
+        const apiCommandPrefix = `!ads`;
 
         if (!content.startsWith(apiCommandPrefix)) return;
 
@@ -92,10 +91,10 @@ const AutoDropShadow = (() => {
             sendChat(API_NAME, `/w gm &{template:default}{{name=Auto Drop Shadow Advanced Commands}}{{desc=${advancedUsageMessage}}}`);
 
             const basicUsageMessage = `
-            1. Select a token.
-            2. Run: ${apiCommandPrefix}
-          3.a. Set **${config.altitudeKey}** != 0 to create a shadow that will automatically follow the given token.
-          3.b. Set **${config.altitudeKey}** == 0 to remove the linked shadow.`;
+            1. Select a token to use as a shadow.
+            2. Send '${apiCommandPrefix}' in the chat.
+          3.a. Set **${config.altitudeKey}** != 0, then a copy of the shadow will be created and automatically follow the flying token.
+          3.b. Set **${config.altitudeKey}** == 0 to remove the corresponding shadow.`;
             sendChat(API_NAME, `/w gm &{template:default}{{name=Auto Drop Shadow Basic Usage}}{{desc=${basicUsageMessage}}}`);
             return;
         }
