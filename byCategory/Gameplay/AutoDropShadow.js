@@ -4,8 +4,8 @@
  */
 const AutoDropShadow = (() => {
     const API_NAME = 'AutoDropShadow';
-    const VERSION = '1.1';
-    const UPDATE_DATE = '2026-06-03';
+    const VERSION = '1.2';
+    const UPDATE_DATE = '${GIT_COMMIT_DATETIME}';
 
     const DEFAULT_STATE = {
         altitudeKey: 'bar4_value',
@@ -254,6 +254,7 @@ const AutoDropShadow = (() => {
     const updateShadow = function (sourceObj, altitude) {
         const sourcesToShadowsMap = state[API_NAME].sourcesToShadowsMap;
         const sourceObjId = sourceObj.get('_id');
+        const sourceObjLayer = sourceObj.get('layer');
         const shadowId = sourcesToShadowsMap[sourceObjId];
         const shadowToken = shadowId ? getObj('graphic', shadowId) : null;
 
@@ -270,7 +271,9 @@ const AutoDropShadow = (() => {
 
         const newLeft = sourceObj.get('left');
         const newTop = sourceObj.get('top') + offsetInPixels;
-        const newLayer = altitudeInteger > 0 ? 'map' : 'foreground';
+        const newLayer = 'foreground';
+        if (sourceObjLayer === 'gmlayer') newLayer = 'gmlayer';
+        else if (0 < altitudeInteger && altitudeInteger < 5) newLayer = 'map';
 
         if (shadowToken) {
             shadowToken.set({
