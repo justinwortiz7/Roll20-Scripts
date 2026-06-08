@@ -5,7 +5,7 @@
 const AutoDropShadow = (() => {
     const API_NAME = 'AutoDropShadow';
     const VERSION = '1.2';
-    const UPDATE_DATE = '${GIT_COMMIT_DATETIME}';
+    const UPDATE_DATE = '2026-06-08';
 
     const DEFAULT_STATE = {
         altitudeKey: 'bar4_value',
@@ -17,10 +17,11 @@ const AutoDropShadow = (() => {
     /**
      * Creates a shadow graphic/token object.
      * @param {any} sourceObj The Roll20 object casting the shadow.
-     * @param {string} layer
-     * @param {string} offsetInPixels
+     * @param {string} layer The Roll20 layer to place the shadow on.
+     * @param {number} x The x-axis value for the shadow's position.
+     * @param {number} y The y-axis value for the shadow's position.
      */
-    const createShadow = function (sourceObj, layer, offsetInPixels) {
+    const createShadow = function (sourceObj, layer, x, y) {
         const config = state[API_NAME];
         const prefabId = config.prefabId;
 
@@ -34,8 +35,8 @@ const AutoDropShadow = (() => {
             type: 'graphic',
             subtype: 'token',
             pageid: sourceObj.get('pageid'),
-            left: sourceObj.get('left'),
-            top: sourceObj.get('top') + offsetInPixels,
+            left: x,
+            top: y,
             width: sourceObj.get('width'),
             height: sourceObj.get('height'),
             imgsrc: prefabImage,
@@ -57,7 +58,7 @@ const AutoDropShadow = (() => {
     /**
      * Calculates the number of pixels per grid unit using the page 'square_size' and 'scale_number'.
      * @param {any} pageId The Roll20 page id.
-     * @returns {number}
+     * @returns {number} The number of pixels per grid unit.
      */
     const getPixelsPerGridUnit = function (pageId) {
         const page = getObj('page', pageId);
@@ -161,14 +162,9 @@ const AutoDropShadow = (() => {
      * @param {any} prevObjState Previous state of the Roll20 object.
      */
     const handleGraphicChange = function (currentObjState, prevObjState) {
-        const config = state[API_NAME];
-        const tag = config.tag;
-        const currentTags = currentObjState.get('tags') || [];
+        if (isShadow(currentObjState)) return;
 
-        // Ignore if it's a shadow
-        if (currentTags.includes(tag)) return;
-
-        const altitudeKey = config.altitudeKey;
+        const altitudeKey = state[API_NAME].altitudeKey;
         const currentAltitude = currentObjState.get(altitudeKey);
         const prevAltitude = prevObjState[altitudeKey];
         const isAltitudeChange = prevAltitude !== currentAltitude;
@@ -186,11 +182,13 @@ const AutoDropShadow = (() => {
      * @param {any} removedObj Roll20 object that is being removed from the game.
      */
     const handleGraphicRemoval = function (removedObj) {
+        if (isShadow(removedObj)) return;
+
         const sourcesToShadowsMap = state[API_NAME].sourcesToShadowsMap;
         const removedObjId = removedObj.get('_id');
+        const shadowId = sourcesToShadowsMap[removedObjId];
 
-        if (Object.prototype.hasOwnProperty.call(sourcesToShadowsMap, removedObjId)) {
-            const shadowId = sourcesToShadowsMap[removedObjId];
+        if (shadowId) {
             const shadow = getObj('graphic', shadowId);
             if (shadow) shadow.remove();
             delete sourcesToShadowsMap[removedObjId];
@@ -218,12 +216,24 @@ const AutoDropShadow = (() => {
     }
 
     /**
+     * Determines whether the given object is a shadow.
+     * @param {any} obj Roll20 object to check.
+     * @returns {boolean} True if the given object is a shadow.
+     */
+    const isShadow = function (obj) {
+        const config = state[API_NAME];
+        const tag = config.tag;
+        const currentTags = obj.get('tags') || [];
+        return currentTags.includes(tag);
+    }
+
+    /**
      * Registers event handlers for configuration input and graphic changes.
      */
     const registerHandlers = function () {
         on('chat:message', handleConfigInput);
         on('change:graphic', handleGraphicChange);
-        on('remove:graphic', handleGraphicRemoval);
+        on('destroy:graphic', handleGraphicRemoval);
     }
 
     /**
@@ -248,8 +258,8 @@ const AutoDropShadow = (() => {
 
     /**
      * Creates or updates the existing shadow for a given source object.
-     * @param {any} sourceObj
-     * @param {number} altitude
+     * @param {any} sourceObj The object casting the shadow.
+     * @param {number} altitude The source object's altitude.
      */
     const updateShadow = function (sourceObj, altitude) {
         const sourcesToShadowsMap = state[API_NAME].sourcesToShadowsMap;
@@ -284,11 +294,11 @@ const AutoDropShadow = (() => {
             return;
         }
 
-        createShadow(sourceObj, newLayer, offsetInPixels);
+        createShadow(sourceObj, newLayer, newLeft, newTop);
     }
 
     /**
-     * Updates the tags on managed shadows.
+     * Updates the tags on all managed shadows.
      * @param {string} previousTag The previous tag to remove from the managed objects.
      * @param {string} newTag The new tag to apply to the managed objects.
      */
