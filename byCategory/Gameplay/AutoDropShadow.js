@@ -77,11 +77,12 @@ const AutoDropShadow = (() => {
     const handleConfigInput = function (message) {
         if (message.type !== 'api') return;
 
-        const content = message.content ? message.content.toLowerCase() : "";
-        const config = state[API_NAME];
+        const content = message.content ? message.content.toLowerCase() : '';
         const apiCommandPrefix = `!ads`;
 
         if (!content.startsWith(apiCommandPrefix)) return;
+
+        const config = state[API_NAME];
 
         if (content.includes('help')) {
             const advancedUsageMessage = `
@@ -168,7 +169,6 @@ const AutoDropShadow = (() => {
         const currentAltitude = currentObjState.get(altitudeKey);
         const prevAltitude = prevObjState[altitudeKey];
         const isAltitudeChange = prevAltitude !== currentAltitude;
-
         const isPositionChange = prevObjState.left !== currentObjState.left || prevObjState.top !== currentObjState.top;
 
         if (isAltitudeChange || isPositionChange) {
@@ -198,7 +198,7 @@ const AutoDropShadow = (() => {
     /**
      * Initializes the configuration state if it doesn't exist.
      */
-    const initialize = function () {
+    const initializeConfiguration = function () {
         if (!state[API_NAME]) {
             state[API_NAME] = { ...DEFAULT_STATE };
         } else {
@@ -210,9 +210,6 @@ const AutoDropShadow = (() => {
                 }
             }
         }
-
-        const config = state[API_NAME];
-        log(`👁️‍🗨️ ${API_NAME} v${VERSION} Ready! (Updated: ${UPDATE_DATE})`);
     }
 
     /**
@@ -316,7 +313,8 @@ const AutoDropShadow = (() => {
     }
 
     on('ready', () => {
-        initialize();
+        initializeConfiguration();
         registerHandlers();
+        log(`👤 ${API_NAME} v${VERSION} Ready! (Updated: ${UPDATE_DATE})`);
     });
 })();
