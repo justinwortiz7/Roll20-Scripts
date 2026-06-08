@@ -271,7 +271,7 @@ const AutoDropShadow = (() => {
 
         const newLeft = sourceObj.get('left');
         const newTop = sourceObj.get('top') + offsetInPixels;
-        const newLayer = 'foreground';
+        let newLayer = 'foreground';
         if (sourceObjLayer === 'gmlayer') newLayer = 'gmlayer';
         else if (0 < altitudeInteger && altitudeInteger < 5) newLayer = 'map';
 
