@@ -274,13 +274,16 @@ const AutoDropShadow = (() => {
         }
 
         const pageId = sourceObj.get('pageid');
-        const offsetInPixels = altitudeInteger * getPixelsPerGridUnit(pageId);
+        const pixelsPerGridUnit = getPixelsPerGridUnit(pageId);
+        const offsetInPixels = altitudeInteger * pixelsPerGridUnit;
 
         const newLeft = sourceObj.get('left');
         const newTop = sourceObj.get('top') + offsetInPixels;
+        const sourceObjHeightInPixels = sourceObj.get('height');
+        const sourceObjHeightInGridUnits = sourceObjHeightInPixels / pixelsPerGridUnit;
         let newLayer = 'foreground';
         if (sourceObjLayer === 'gmlayer') newLayer = 'gmlayer';
-        else if (0 < altitudeInteger && altitudeInteger < 5) newLayer = 'map';
+        else if (0 < altitudeInteger && altitudeInteger < sourceObjHeightInGridUnits) newLayer = 'map';
 
         if (shadowToken) {
             shadowToken.set({
