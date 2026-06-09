@@ -1,164 +1,108 @@
 ﻿/**
- * Randomized Loot Distributor (RLD)
- * 
  * Automatically distributes loot from player-specific rollable tables to a random eligible party member.
- * 
- * Features:
- * - Selects a random character marked "In Party" (ignoring NPCs/Summons).
- * - Rolls from a table named "[FirstName] [Suffix]" (e.g., "John-items").
- * - Delivers the result via a whisper to the selected player.
- * - Configurable via chat commands.
- * 
- * Usage:
- * - !whogetsit : Roll for a random player.
- * - !whogetsit title "New Title" : Set the output template title.
- * - !whogetsit suffix "-suffix" : Set the table name suffix.
- * - !whogetsit reset : Reset configuration to defaults.
- * - !whogetsit help : Show help message.
- * 
- * Requirements:
- * 1. Characters must have "In Party" checked.
- * 2. Characters tagged "summon" or "npc" are ignored.
- * 3. Rollable Tables must exist with the pattern "[FirstName] [Suffix]".
- * 
- * @module RandomizedLootDistributor
  */
 const RandomizedLootDistributor = (function () {
     const API_NAME = 'RandomizedLootDistributor';
-    const VERSION = '2.0';
-    const UPDATE_DATE = '2026-06-03';
+    const VERSION = '2.1';
+    const UPDATE_DATE = '2026-06-09';
 
     const DEFAULT_STATE = {
-        version: VERSION,
-        updateDate: UPDATE_DATE,
-        args: {
-            outputTitleKeyword: 'title',
-            tableSuffixKeyword: 'suffix',
-            resetKeyword: 'reset'
-        },
-        config: {
-            outputTemplateTitle: '(From Randomized Loot Distributor)',
-            rollableTableNameSuffix: '-items'
-        }
+        outputTemplateTitle: API_NAME,
+        rollableTableNameSuffix: '-items',
+        ignore: ['summon', 'npc']
     };
 
     /**
-     * Initializes the module on Roll20 ready.
-     * Sets up default state if not present and logs readiness.
-     */
-    const onReady = function () {
-        if (!state[API_NAME]) {
-            state[API_NAME] = { ...DEFAULT_STATE };
-        } else {
-            const config = state[API_NAME];
-            // Ensure all default keys exist
-            for (const key in DEFAULT_STATE) {
-                if (config[key] === undefined) {
-                    config[key] = DEFAULT_STATE[key];
-                }
-            }
-        }
-
-        const currentVersion = state[API_NAME].version;
-        const currentUpdate = state[API_NAME].updateDate;
-        log(`🚀 ${API_NAME} v${currentVersion} Ready! (Updated: ${currentUpdate})`);
-    };
-
-    /**
-     * Handles incoming API chat messages.
-     * Routes commands to specific handlers based on content.
+     * Retrieves a list of first names for characters in the party, excluding 
+     * characters tagged with the configured ignore tags.
      * 
-     * @param {Object} msg - The chat message object from Roll20.
+     * @returns {string[]} Array of character first names.
      */
-    const onChatMessage = function (msg) {
-        if (msg.type !== 'api' || !msg.content.startsWith('!whogetsit')) return;
+    const getPlayerCharacterNames = function () {
+        const characters = findObjs({ type: 'character', inParty: true });
+        const names = [];
 
-        const args = msg.content.trim().split(/\s+/).slice(1);
+        for (const char of characters) {
+            const fullName = char.get('name');
+            if (!fullName || fullName.trim() === '') continue;
 
-        if (args.length === 0) {
-            handleDistribution();
-            return;
+            const tags = char.get('tags') || [];
+            const tagsToIgnore = state[API_NAME].ignore;
+            if (tags.some(tag => tagsToIgnore.includes(tag))) continue;
+
+            // Extract first name
+            const spaceIndex = fullName.indexOf(' ');
+            const firstName = spaceIndex !== -1 ? fullName.substring(0, spaceIndex) : fullName;
+            names.push(firstName);
         }
 
-        const configArgs = Object.values(state[API_NAME].args);
-        const hasConfigArg = args.some(arg => configArgs.includes(arg.toLowerCase()));
-
-        if (hasConfigArg) {
-            handleConfigCommand(args);
-        } else {
-            handleHelpCommand();
-        }
+        return names;
     };
 
     /**
-     * Handles configuration updates (title, suffix, reset).
+     * Handles configuration updates.
      * 
-     * @param {string[]} args - The command arguments.
+     * @param {string[]} args
      */
     const handleConfigCommand = function (args) {
-        const config = state[API_NAME].config;
-        const supportedArgs = state[API_NAME].args;
+        const config = state[API_NAME];
         const updates = [];
 
-        for (let i = 0; i < args.length; i++) {
-            const currentArg = args[i].toLowerCase();
+        for (let argumentIndex = 0; argumentIndex < args.length; argumentIndex++) {
+            const argument = args[argumentIndex].toLowerCase();
 
-            if (currentArg === supportedArgs.resetKeyword) {
+            if (argument === 'reset') {
                 state[API_NAME] = { ...DEFAULT_STATE };
-                updates.push('✅ Config reset to defaults.');
-                break;
+                updates.push('{{✅ Config=Reset to defaults successful.}}');
+                break; // Stop processing args
             }
 
-            if (currentArg === supportedArgs.outputTitleKeyword && (i + 1) < args.length) {
-                const oldValue = config.outputTemplateTitle;
-                const newValue = args[i + 1];
-                state[API_NAME].config.outputTemplateTitle = newValue;
-                updates.push(`✅ Template Title updated from "${oldValue}" to "${newValue}"`);
-                i++; // Skip next arg
-            }
-            else if (currentArg === supportedArgs.tableSuffixKeyword && (i + 1) < args.length) {
-                const oldValue = config.rollableTableNameSuffix;
-                const newValue = args[i + 1];
-                state[API_NAME].config.rollableTableNameSuffix = newValue;
-                updates.push(`✅ Table Suffix updated from "${oldValue}" to "${newValue}"`);
-                i++; // Skip next arg
+            const thisIsTheLastArgument = (argumentIndex + 1) >= args.length;
+            if (thisIsTheLastArgument)
+                break;
+
+            const newConfigValue = args[argumentIndex + 1].replaceAll('"', '');
+            let oldConfigValue = undefined;
+            switch (argument) {
+                case 'title':
+                    oldConfigValue = config.outputTemplateTitle;
+                    state[API_NAME].outputTemplateTitle = newConfigValue;
+                    updates.push(`{{✅ Title="${oldConfigValue}" updated to "${newConfigValue}"}}`);
+                    argumentIndex++;
+                    break;
+                case 'suffix':
+                    oldConfigValue = config.rollableTableNameSuffix;
+                    state[API_NAME].rollableTableNameSuffix = newConfigValue;
+                    updates.push(`{{✅ Suffix="${oldConfigValue}" updated to "${newConfigValue}"}}`);
+                    argumentIndex++;
+                    break;
+                case 'ignore':
+                    const tagsToIgnore = state[API_NAME].ignore;
+                    tagsToIgnore.push(newConfigValue);
+                    updates.push(`{{✅ Now Ignoring="${tagsToIgnore.join(', ')}"}}`);
+                    argumentIndex++;
+                    break;
+                case 'help':
+                    continue;
+                default:
+                    log(`${API_NAME}: Skipping unsupported configuration argument '${argument}'`);
+                    break;
             }
         }
 
         if (updates.length > 0) {
-            const message = updates.join('\n');
-            sendChat(API_NAME, `/w gm &{template:default}{{name=Configuration}}{{message(s)=${message}}}`);
-        } else {
-            handleHelpCommand();
-            log(`⚠️ [RLD] Invalid config command.`);
+            sendChat(API_NAME, `/w gm &{template:default}{{name=Configuration}}${updates.join('')}`);
+            return;
         }
+
+        handleHelpCommand();
     };
 
     /**
-     * Displays the help message with current configuration.
-     */
-    const handleHelpCommand = function () {
-        const config = state[API_NAME].config;
-        const helpMessage = `📜 **Randomized Loot Distributor (RLD)**
-Current Config:
-- Template Title: "${config.outputTemplateTitle}"
-- Table Suffix: "${config.rollableTableNameSuffix}"
-
-**Commands**:
-!whogetsit : Distribute loot to random player
-!whogetsit title "NewName" : Set template title
-!whogetsit suffix "-items" : Set table suffix
-!whogetsit reset : Reset to defaults
-!whogetsit help : View this message`;
-
-        sendChat(API_NAME, `/w gm &{template:default}{{name=Help}}${helpMessage}`);
-    };
-
-    /**
-     * Executes the main logic: selects a random player and rolls their loot table.
+     * Selects a random player in the currently defined party and rolls their loot table.
      */
     const handleDistribution = function () {
-        const config = state[API_NAME].config;
+        const config = state[API_NAME];
         const playerNames = getPlayerCharacterNames();
 
         if (!playerNames || playerNames.length === 0) {
@@ -177,37 +121,49 @@ Current Config:
             return;
         }
 
-        const rollString = `[[1t[${tableName}]]]`;
-        sendChat(API_NAME, `&{template:default}{{name=${config.outputTemplateTitle}}}{{recipient=${selectedName}}}{{item=${rollString}}}`);
+        sendChat(API_NAME, `&{template:default}{{name=${config.outputTemplateTitle}}}{{recipient=${selectedName}}}{{item=[[1t[${tableName}]]]}}`);
     };
 
     /**
-     * Retrieves a list of first names for characters in the party.
-     * Excludes characters tagged 'summon' or 'npc'.
-     * 
-     * @returns {string[]} Array of character first names.
+     * Displays the help message and current configuration.
      */
-    const getPlayerCharacterNames = function () {
-        const characters = findObjs({ type: 'character', inParty: true });
-        const names = [];
+    const handleHelpCommand = function () {
+        const config = state[API_NAME];
 
-        for (const char of characters) {
-            const fullName = char.get('name');
-            if (!fullName || fullName.trim() === '') continue;
+        const currentConfig = `{{Template Title="${config.outputTemplateTitle}"}}{{Table Suffix="${config.rollableTableNameSuffix}"}}{{Exclude Characters with Tags=${config.ignore.join(', ')}}}`;
+        sendChat(API_NAME, `/w gm &{template:default}{{name=Current Configuration}}${currentConfig}`);
 
-            const tags = char.get('tags') || [];
-            if (tags.includes('summon') || tags.includes('npc')) continue;
-
-            // Extract first name
-            const spaceIndex = fullName.indexOf(' ');
-            const firstName = spaceIndex !== -1 ? fullName.substring(0, spaceIndex) : fullName;
-            names.push(firstName);
-        }
-
-        return names;
+        const commands = `{{Distribute loot to random player=!whogetsit}}{{Set template title=!rld title "NewName"}}{{Set table suffix=!rld suffix "-items"}}{{Add Exclusion Tags=!rld ignore "tag"}}{{Reset to defaults=!rld reset}}`;
+        sendChat(API_NAME, `/w gm &{template:default}{{name=Commands}}${commands}`);
     };
 
-    // Register Event Listeners
-    on('ready', onReady);
-    on('chat:message', onChatMessage);
+    on('chat:message', () => {
+        const isValidCommand = chatMessage.content.startsWith('!whogetsit') || chatMessage.content.startsWith('!rld');
+        if (chatMessage.type !== 'api' || !isValidCommand) return;
+
+        const args = chatMessage.content.trim().match(/(?:[^\s"]+|"[^"]*")+/g).slice(1);
+
+        if (args.length === 0) {
+            handleDistribution();
+            return;
+        }
+
+        handleConfigCommand(args);
+    });
+
+    on('ready', () => {
+        if (!state[API_NAME]) {
+            state[API_NAME] = { ...DEFAULT_STATE };
+        } else {
+            const config = state[API_NAME];
+            // Ensure all default keys exist
+            for (const key in DEFAULT_STATE) {
+                if (config[key] === undefined) {
+                    config[key] = DEFAULT_STATE[key];
+                }
+            }
+        }
+
+        log(`🚀 ${API_NAME} v${VERSION} Ready! (Updated: ${UPDATE_DATE})`);
+    });
 })();
