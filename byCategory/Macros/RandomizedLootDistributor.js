@@ -137,7 +137,7 @@ const RandomizedLootDistributor = (function () {
         sendChat(API_NAME, `/w gm &{template:default}{{name=Commands}}${commands}`);
     };
 
-    on('chat:message', () => {
+    on('chat:message', (chatMessage) => {
         const isValidCommand = chatMessage.content.startsWith('!whogetsit') || chatMessage.content.startsWith('!rld');
         if (chatMessage.type !== 'api' || !isValidCommand) return;
 
