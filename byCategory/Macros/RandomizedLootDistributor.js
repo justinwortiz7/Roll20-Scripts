@@ -3,13 +3,24 @@
  */
 const RandomizedLootDistributor = (function () {
     const API_NAME = 'RandomizedLootDistributor';
-    const VERSION = '2.1';
-    const UPDATE_DATE = '2026-06-09';
+    const VERSION = '2.2';
+    const UPDATE_DATE = '2026-07-06';
 
     const DEFAULT_STATE = {
         outputTemplateTitle: API_NAME,
         rollableTableNameSuffix: '-items',
         ignore: ['summon', 'npc']
+    };
+
+    const displayCommandHelp = function () {
+        const commands = `{{Distribute loot to random player=!whogetsit\n!rld}}{{Set template title=!rld title "NewName"}}{{Set table suffix=!rld suffix "-items"}}{{Add Exclusion Tags=!rld ignore "tag"}}{{Reset to defaults=!rld reset}}`;
+        sendChat(API_NAME, `/w gm &{template:default}{{name=Commands}}${commands}`);
+    };
+
+    const displayCurrentConfig = function () {
+        const config = state[API_NAME];
+        const currentConfig = `{{Template Title="${config.outputTemplateTitle}"}}{{Table Suffix="${config.rollableTableNameSuffix}"}}{{Exclude Characters with Tags=${config.ignore.join(', ')}}}`;
+        sendChat(API_NAME, `/w gm &{template:default}{{name=Current Configuration}}${currentConfig}`);
     };
 
     /**
@@ -28,7 +39,14 @@ const RandomizedLootDistributor = (function () {
 
             const tags = char.get('tags') || [];
             const tagsToIgnore = state[API_NAME].ignore;
-            if (tags.some(tag => tagsToIgnore.includes(tag))) continue;
+            let ignoreCharacter = false;
+            for (const tag of tags) {
+                if (tagsToIgnore.includes(tag)) {
+                    ignoreCharacter = true;
+                    break;
+                }
+            }
+            if (ignoreCharacter) continue;
 
             // Extract first name
             const spaceIndex = fullName.indexOf(' ');
@@ -47,46 +65,39 @@ const RandomizedLootDistributor = (function () {
     const handleConfigCommand = function (args) {
         const config = state[API_NAME];
         const updates = [];
+        const configMap = {
+            title: (val) => {
+                const old = config.outputTemplateTitle;
+                state[API_NAME].outputTemplateTitle = val;
+                return `{{✅ Title="${old}" updated to "${val}"}}`;
+            },
+            suffix: (val) => {
+                const old = config.rollableTableNameSuffix;
+                state[API_NAME].rollableTableNameSuffix = val;
+                return `{{✅ Suffix="${old}" updated to "${val}"}}`;
+            },
+            ignore: (val) => {
+                config.ignore.push(val);
+                return `{{✅ Now Ignoring="${config.ignore.join(', ')}"}}`;
+            }
+        };
 
         for (let argumentIndex = 0; argumentIndex < args.length; argumentIndex++) {
             const argument = args[argumentIndex].toLowerCase();
-
             if (argument === 'reset') {
                 state[API_NAME] = { ...DEFAULT_STATE };
                 updates.push('{{✅ Config=Reset to defaults successful.}}');
-                break; // Stop processing args
-            }
-
-            const thisIsTheLastArgument = (argumentIndex + 1) >= args.length;
-            if (thisIsTheLastArgument)
                 break;
-
-            const newConfigValue = args[argumentIndex + 1].replaceAll('"', '');
-            let oldConfigValue = undefined;
-            switch (argument) {
-                case 'title':
-                    oldConfigValue = config.outputTemplateTitle;
-                    state[API_NAME].outputTemplateTitle = newConfigValue;
-                    updates.push(`{{✅ Title="${oldConfigValue}" updated to "${newConfigValue}"}}`);
-                    argumentIndex++;
-                    break;
-                case 'suffix':
-                    oldConfigValue = config.rollableTableNameSuffix;
-                    state[API_NAME].rollableTableNameSuffix = newConfigValue;
-                    updates.push(`{{✅ Suffix="${oldConfigValue}" updated to "${newConfigValue}"}}`);
-                    argumentIndex++;
-                    break;
-                case 'ignore':
-                    const tagsToIgnore = state[API_NAME].ignore;
-                    tagsToIgnore.push(newConfigValue);
-                    updates.push(`{{✅ Now Ignoring="${tagsToIgnore.join(', ')}"}}`);
-                    argumentIndex++;
-                    break;
-                case 'help':
-                    continue;
-                default:
-                    log(`${API_NAME}: Skipping unsupported configuration argument '${argument}'`);
-                    break;
+            } else if (argument === 'help') {
+                displayCommandHelp();
+                return;
+            } else if (argument === 'config') {
+                displayCurrentConfig();
+                return;
+            } else if (configMap[argument] && args[argumentIndex + 1]) {
+                updates.push(configMap[argument](args[++argumentIndex].replaceAll('"', '')));
+            } else {
+                log(`${API_NAME}: Skipping unsupported configuration argument '${argument}'`);
             }
         }
 
@@ -94,8 +105,6 @@ const RandomizedLootDistributor = (function () {
             sendChat(API_NAME, `/w gm &{template:default}{{name=Configuration}}${updates.join('')}`);
             return;
         }
-
-        handleHelpCommand();
     };
 
     /**
@@ -122,19 +131,6 @@ const RandomizedLootDistributor = (function () {
         }
 
         sendChat(API_NAME, `&{template:default}{{name=${config.outputTemplateTitle}}}{{recipient=${selectedName}}}{{item=[[1t[${tableName}]]]}}`);
-    };
-
-    /**
-     * Displays the help message and current configuration.
-     */
-    const handleHelpCommand = function () {
-        const config = state[API_NAME];
-
-        const currentConfig = `{{Template Title="${config.outputTemplateTitle}"}}{{Table Suffix="${config.rollableTableNameSuffix}"}}{{Exclude Characters with Tags=${config.ignore.join(', ')}}}`;
-        sendChat(API_NAME, `/w gm &{template:default}{{name=Current Configuration}}${currentConfig}`);
-
-        const commands = `{{Distribute loot to random player=!whogetsit}}{{Set template title=!rld title "NewName"}}{{Set table suffix=!rld suffix "-items"}}{{Add Exclusion Tags=!rld ignore "tag"}}{{Reset to defaults=!rld reset}}`;
-        sendChat(API_NAME, `/w gm &{template:default}{{name=Commands}}${commands}`);
     };
 
     on('chat:message', (chatMessage) => {
