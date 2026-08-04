@@ -3,8 +3,8 @@
  */
 const RandomizedLootDistributor = (function () {
     const API_NAME = 'RandomizedLootDistributor';
-    const VERSION = '2.2';
-    const UPDATE_DATE = '2026-07-06';
+    const VERSION = '2.3';
+    const UPDATE_DATE = '2026-08-03';
 
     const DEFAULT_STATE = {
         outputTemplateTitle: API_NAME,
@@ -30,6 +30,7 @@ const RandomizedLootDistributor = (function () {
      * @returns {string[]} Array of character first names.
      */
     const getPlayerCharacterNames = function () {
+        const tagsToIgnore = state[API_NAME].ignore;
         const characters = findObjs({ type: 'character', inParty: true });
         const names = [];
 
@@ -37,8 +38,7 @@ const RandomizedLootDistributor = (function () {
             const fullName = char.get('name');
             if (!fullName || fullName.trim() === '') continue;
 
-            const tags = char.get('tags') || [];
-            const tagsToIgnore = state[API_NAME].ignore;
+            const tags = JSON.parse(char.get('tags')) || [];
             let ignoreCharacter = false;
             for (const tag of tags) {
                 if (tagsToIgnore.includes(tag)) {
